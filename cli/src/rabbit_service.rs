@@ -22,7 +22,7 @@ pub async fn publish(queue_name: &str, message: &str) {
 
     channel
         .basic_publish(
-            message,
+            "",
             &queue_name,
             BasicPublishOptions::default(),
             message.as_bytes(),

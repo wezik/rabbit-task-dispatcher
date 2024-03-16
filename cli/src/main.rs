@@ -15,7 +15,8 @@ async fn main() {
     let stdin = io::stdin();
     let mut input = String::new();
 
-    let queue_name = utils::get_env_var("RABBITMQ_QUEUE", "task-dispatcher", true);
+    let publish_queue = utils::get_env_var("RABBITMQ_PUBLLISH_QUEUE", "task-dispatcher", true);
+    // let consumer_queue = utils::get_env_var("RABBITMQ_CONSUMER_QUEUE", "task-return", true);
 
     loop {
         println!("\n=======| 1. Send tasks to RabbitMQ | 2. Exit |=======");
@@ -24,9 +25,17 @@ async fn main() {
 
         match input.trim() {
             "1" => {
-                let messages = vec!["Hello world RabbitmQ!"];
+                let messages = vec![
+                    "Hello world RabbitMQ!",
+                    "Message 1",
+                    "Message 2",
+                    "Message 3",
+                    "Message 4",
+                    "Message 5",
+                    "Message 6",
+                ];
                 for message in messages {
-                    rabbit_service::publish(&queue_name, message).await;
+                    rabbit_service::publish(&publish_queue, message).await;
                 }
             }
             "2" => {
