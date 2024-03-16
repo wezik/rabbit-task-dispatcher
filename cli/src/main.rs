@@ -1,9 +1,7 @@
 use std::{io, process::exit};
 
 use dotenv::dotenv;
-use log::{info, debug};
-
-use crate::rabbit_service::RabbitService;
+use log::{debug, info};
 
 mod rabbit_service;
 mod utils;
@@ -11,24 +9,29 @@ mod utils;
 #[tokio::main]
 async fn main() {
     init();
+
     info!("================ Rabbit Task Dispatcher ================");
 
-    let rabbitmq = RabbitService::new().await;
     let stdin = io::stdin();
     let mut input = String::new();
-    
+
+    let queue_name = utils::get_env_var("RABBITMQ_QUEUE", "task-dispatcher", true);
+
     loop {
-        println!("\n=======| 1. Send a task to RabbitMQ | 2. Exit |=======");
+        println!("\n=======| 1. Send tasks to RabbitMQ | 2. Exit |=======");
         input.clear();
         let _ = stdin.read_line(&mut input);
 
         match input.trim() {
             "1" => {
-                rabbitmq.publish("Hello world RabbitmQ!").await;
-            },
+                let messages = vec!["Hello world RabbitmQ!"];
+                for message in messages {
+                    rabbit_service::publish(&queue_name, message).await;
+                }
+            }
             "2" => {
                 exit(0);
-            },
+            }
             _ => {
                 println!("Invalid input. Please enter 1 or 2");
             }
