@@ -1,7 +1,7 @@
 # rabbit-task-dispatcher
 
 ## Project Overview
-This training project consists of [Rust CLI Client](https://github.com/wezik/rabbit-task-dispatcher/edit/main/README.md#rust-cli-client), RabbitMQ, and [Golang worker](https://github.com/wezik/rabbit-task-dispatcher/edit/main/README.md#golang-worker).  
+This training project consists of [Rust CLI Client](https://github.com/wezik/rabbit-task-dispatcher/tree/main?tab=readme-ov-file#rust-cli-client), RabbitMQ, and [Golang worker](https://github.com/wezik/rabbit-task-dispatcher/tree/main?tab=readme-ov-file#golang-worker).  
 The primary objective of this one is to challenge myself with message brokers. Additionally, I've opted to user other programming languages, namely Rust and Go.
 
 Simple representative graph:
