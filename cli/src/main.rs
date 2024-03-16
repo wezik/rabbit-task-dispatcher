@@ -1,14 +1,31 @@
-use std::{io, process::exit};
+use std::{io::{self, stdout}, process::exit};
 
+use crossterm::{event::{self, Event, KeyCode}, terminal::{enable_raw_mode, EnterAlternateScreen}, ExecutableCommand};
 use dotenv::dotenv;
 use log::{debug, info};
+use ratatui::{backend::CrosstermBackend, layout::{Constraint, Direction, Layout}, widgets::{Block, Borders, Paragraph}, Frame, Terminal};
+use tokio::io::split;
 
 mod rabbit_service;
 mod utils;
 
+struct Body {
+    text: String
+}
 #[tokio::main]
 async fn main() {
-    init();
+    let _ = enable_raw_mode();
+    stdout().execute(EnterAlternateScreen).unwrap();
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout())).unwrap();
+
+    let mut should_quit = false;
+    let mut body = Body{ text: "".to_string() };
+    while !should_quit {
+        let _ = terminal.draw(|frame| ui(frame, &body));
+        should_quit = handle_events(&mut body).await.unwrap();
+    }
+
+/*     init();
 
     info!("================ Rabbit Task Dispatcher ================");
 
@@ -45,7 +62,52 @@ async fn main() {
                 println!("Invalid input. Please enter 1 or 2");
             }
         }
+    } */
+}
+
+async fn handle_events(body: &mut Body) -> io::Result<bool> {
+    if event::poll(std::time::Duration::from_millis(50)).unwrap() {
+        if let Event::Key(key) = event::read().unwrap() {
+            if key.kind == event::KeyEventKind::Press {
+
+                match key.code {
+                    KeyCode::Char('q') => {
+                        return Ok(true);
+                    }
+
+                    KeyCode::Char('1') => {
+
+                        let line = format!("Publish task id: {} to 'task-dispatcher' queue\n",body.text.len());
+                        body.text += &line; 
+                        rabbit_service::publish("task-dispatcher", "Hello world!").await;
+                    }
+                    _ => {
+
+                    }
+                }
+            }
+        }
     }
+    Ok(false)
+}
+
+fn ui(frame: &mut Frame, body: &Body) {
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(frame.size());
+
+
+    frame.render_widget(
+        Paragraph::new("Hello world :)").block(Block::default().title("Rabbit task dispatcher").borders(Borders::ALL)),
+        layout[0],
+    );
+
+    frame.render_widget(
+        Paragraph::new(body.text.to_string()).block(Block::default().title("Recieved messages | 1. 'Send Hello World' message | q. Quit").borders(Borders::ALL)),
+        layout[1],
+    );
 }
 
 fn init() {
