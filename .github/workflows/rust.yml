@@ -3,8 +3,12 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'cli/**' # Trigger only if changes are made to files under /cli directory
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'cli/**' # Trigger only if changes are made to files under /cli directory
 
 env:
   CARGO_TERM_COLOR: always

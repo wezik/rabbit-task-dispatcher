@@ -6,8 +6,12 @@ name: Go
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'go-worker/**' # Trigger only if changes are made to files under /go-worker directory
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'go-worker/**' # Trigger only if changes are made to files under /go-worker directory
 
 jobs:
 
