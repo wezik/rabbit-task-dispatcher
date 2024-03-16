@@ -20,7 +20,7 @@ impl RabbitService {
             .expect("Failed to create channel");
         info!("Created channel");
 
-        let queue_name = utils::get_env_var("RABBITMQ_QUEUE_NAME", "tasks", true);
+        let queue_name = utils::get_env_var("RABBITMQ_QUEUE", "task-dispatcher", true);
 
         channel
             .queue_declare(
