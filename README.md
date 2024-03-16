@@ -13,34 +13,38 @@ The project is seamlessly integrated with GitHub Actions, automatically triggeri
 - [Rust CLI workflow](https://github.com/wezik/rabbit-task-dispatcher/actions/workflows/rust.yml)
 - [Go workers workflow](https://github.com/wezik/rabbit-task-dispatcher/actions/workflows/go.yml)
 
-## Rust CLI Client
+## Running project
 Requirements:
 - Cargo installed
+- Go installed
+- RabbitMQ installed and running
 
+1. Configure RabbitMQ in [.env](https://github.com/wezik/rabbit-task-dispatcher/blob/main/cli/.env) file or use default one
+2. Run [Rust CLI Client](https://github.com/wezik/rabbit-task-dispatcher/tree/main?tab=readme-ov-file#rust-cli-client) and any amount of [Golang worker](https://github.com/wezik/rabbit-task-dispatcher/tree/main?tab=readme-ov-file#golang-worker)'s
+3. Use said CLI to interact with everything
+  
+### Rust CLI Client
 It is under cli directory & it's a standard rust project so  
 - head to `cli` directory with `cd cli`
 
-### Build
+#### Build
 ```
 cargo build
 ```
-### Run
+#### Run
 ```
 cargo run
 ```
 
-## Golang worker
-Requirements:
-- Go installed
-  
+### Golang worker
 It is under Go-worker directory & it's a standard go project so
 - head to `go-worker` directory with `cd go-worker`
-### Build
+#### Build
 ```
-go mod build ./
+go build ./
 ```
-### Run
+#### Run
 ```
-go mod run ./
+go run ./
 ```
   
