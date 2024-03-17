@@ -66,7 +66,7 @@ func publish(body []byte) {
 
 	_, err = rmqChannel.QueueDeclare(
 		"task-response", // queue name
-		true,            // durable
+		false,            // durable
 		false,           // auto delete
 		false,           // exclusive
 		false,           // no wait
