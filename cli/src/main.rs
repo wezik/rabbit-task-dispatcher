@@ -1,6 +1,5 @@
 use std::{
     io::{self, stdout},
-    process::exit,
 };
 
 use crossterm::{
@@ -9,18 +8,17 @@ use crossterm::{
     ExecutableCommand,
 };
 use dotenv::dotenv;
-use log::{debug, info};
+use log::{debug};
+use log_handler::LOG;
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph},
-    Frame, Terminal,
+    text::{Span}, Terminal,
 };
-use tokio::io::split;
+
 
 mod rabbit_service;
 mod tui_handler;
+mod log_handler;
 mod utils;
 
 struct AppContext<'a> {
@@ -31,17 +29,20 @@ struct AppContext<'a> {
 }
 #[tokio::main]
 async fn main() {
+
     let _ = enable_raw_mode();
     stdout().execute(EnterAlternateScreen).unwrap();
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout())).unwrap();
 
     let mut should_quit = false;
+
     let mut app = AppContext {
         sent_logs: vec![],
         received_logs: vec![],
         workers_online: 0,
         queued_messages: 0,
     };
+
     while !should_quit {
         let _ = terminal.draw(|frame| tui_handler::ui(frame, &app));
         should_quit = handle_events(&mut app).await.unwrap();
@@ -58,12 +59,11 @@ async fn handle_events<'a>(app: &mut AppContext<'a>) -> io::Result<bool> {
                     }
 
                     KeyCode::Char('1') => {
-                        let span = Span::raw(format!(
+                        log_handler::log(LOG::LogSent(format!(
                             "Publish task id: {} to 'task-dispatcher' queue\n",
                             app.queued_messages
-                        ));
+                        )), app);
                         app.queued_messages += 1;
-                        app.sent_logs.push(span);
 
                         rabbit_service::publish("task-dispatcher", "Hello world!").await;
                     }
