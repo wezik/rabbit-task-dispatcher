@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     io::{self, stdout},
 };
 
@@ -8,17 +9,15 @@ use crossterm::{
     ExecutableCommand,
 };
 use dotenv::dotenv;
-use log::{debug};
+use log::debug;
 use log_handler::LOG;
-use ratatui::{
-    backend::CrosstermBackend,
-    text::{Span}, Terminal,
-};
+use ratatui::{backend::CrosstermBackend, text::Span, Terminal};
+use translations_handler::Translations;
 
-
-mod rabbit_service;
-mod tui_handler;
 mod log_handler;
+mod rabbit_service;
+mod translations_handler;
+mod tui_handler;
 mod utils;
 
 struct AppContext<'a> {
@@ -26,10 +25,12 @@ struct AppContext<'a> {
     received_logs: Vec<Span<'a>>,
     workers_online: usize,
     queued_messages: usize,
+    translations: HashMap<String, String>,
+    current_translation: Translations,
 }
 #[tokio::main]
 async fn main() {
-
+    init();
     let _ = enable_raw_mode();
     stdout().execute(EnterAlternateScreen).unwrap();
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout())).unwrap();
@@ -41,6 +42,8 @@ async fn main() {
         received_logs: vec![],
         workers_online: 0,
         queued_messages: 0,
+        translations: translations_handler::get_translations(Translations::English),
+        current_translation: Translations::English,
     };
 
     while !should_quit {
@@ -59,10 +62,13 @@ async fn handle_events<'a>(app: &mut AppContext<'a>) -> io::Result<bool> {
                     }
 
                     KeyCode::Char('1') => {
-                        log_handler::log(LOG::LogSent(format!(
-                            "Publish task id: {} to 'task-dispatcher' queue\n",
-                            app.queued_messages
-                        )), app);
+                        log_handler::log(
+                            LOG::LogSent(format!(
+                                "Publish task id: {} to 'task-dispatcher' queue\n",
+                                app.queued_messages
+                            )),
+                            app,
+                        );
                         app.queued_messages += 1;
 
                         rabbit_service::publish("task-dispatcher", "Hello world!").await;
@@ -74,6 +80,18 @@ async fn handle_events<'a>(app: &mut AppContext<'a>) -> io::Result<bool> {
                             rabbit_service::publish("task-dispatcher", "Hello world!").await;
                         }
                     }
+                    KeyCode::Char('3') => match app.current_translation {
+                        Translations::English => {
+                            app.translations =
+                                translations_handler::get_translations(Translations::Polish);
+                            app.current_translation = Translations::Polish;
+                        }
+                        _ => {
+                            app.translations =
+                                translations_handler::get_translations(Translations::English);
+                            app.current_translation = Translations::English;
+                        }
+                    },
                     _ => {}
                 }
             }
@@ -87,7 +105,4 @@ fn init() {
     dotenv().ok();
 
     // Init logger
-    env_logger::init();
-    let log_level = utils::get_env_var("RUST_LOG", "INFO", true);
-    debug!("Log level set to '{}'", log_level);
 }

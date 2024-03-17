@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::AppContext;
+use crate::{translations_handler::load_translation, AppContext};
 
 pub fn ui(frame: &mut Frame, app_context: &AppContext) {
     let layout = Layout::default()
@@ -23,20 +23,55 @@ pub fn ui(frame: &mut Frame, app_context: &AppContext) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(layout[1]);
 
-    let menu_paragraph = Paragraph::new("menu.instructions")
-        .block(Block::default().title("menu.title").borders(Borders::ALL));
+    let keys = vec![
+        "menu.instructions.1",
+        "menu.instructions.2",
+        "menu.instructions.3",
+        "menu.instructions.q",
+    ];
+    let translations = keys
+        .iter()
+        .map(|key| load_translation(key, app_context))
+        .map(Span::from)
+        .collect::<Vec<Span>>();
+
+    let lines = translations
+        .iter()
+        .map(|span| Line::from(span.clone()))
+        .collect::<Vec<_>>();
+
+    let menu_paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .title(load_translation("menu.title", app_context))
+            .borders(Borders::ALL),
+    );
     frame.render_widget(menu_paragraph, ui_layout[0]);
 
-    let rabbitmq_info = format!("{}{}", 0, app_context.queued_messages);
-    let info_paragraph = Paragraph::new(rabbitmq_info)
-        .block(Block::default().title("info.title").borders(Borders::ALL));
+    let workers = load_translation("rabbitmq.data.workers", app_context);
+    let tasks = load_translation("rabbitmq.data.tasks", app_context);
+
+    let workers_span = Span::from(format!("{}{}", workers, 0));
+    let tasks_span = Span::from(format!("{}{}", tasks, app_context.queued_messages));
+
+    let spans = vec![workers_span, tasks_span];
+
+    let lines = spans
+        .iter()
+        .map(|span| Line::from(span.clone()))
+        .collect::<Vec<_>>();
+
+    let info_paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .title(load_translation("rabbitmq.title", app_context))
+            .borders(Borders::ALL),
+    );
     frame.render_widget(info_paragraph, ui_layout[1]);
 
     frame.render_widget(
         create_logs_widget(
             &app_context.sent_logs,
             display_layout[0].height,
-            "logs.sent.title",
+            &load_translation("logs.sent.title", app_context),
         ),
         display_layout[0],
     );
@@ -45,7 +80,7 @@ pub fn ui(frame: &mut Frame, app_context: &AppContext) {
         create_logs_widget(
             &app_context.received_logs,
             display_layout[1].height,
-            "logs.received.title",
+            &load_translation("logs.received.title", app_context),
         ),
         display_layout[1],
     );
