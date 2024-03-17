@@ -5,7 +5,7 @@ This training project consists of [Rust Client](https://github.com/wezik/rabbit-
 The primary objective of this one is to challenge myself with message brokers. Additionally, I've opted to user other programming languages, namely Rust and Go.
 
 Simple representative graph:
-![graph2](https://github.com/wezik/rabbit-task-dispatcher/assets/68642257/4e10ccee-37fb-4a2c-b317-b78c5af1dc61)
+![graph2](https://github.com/wezik/rabbit-task-dispatcher/assets/68642257/eea17df5-74e3-4a33-93c7-a5c64a3d37cf)
 *(created using https://excalidraw.com lovely tool)*
 
 ## Continuous Integration CI
