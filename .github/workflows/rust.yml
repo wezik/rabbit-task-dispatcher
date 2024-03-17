@@ -4,11 +4,11 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'cli/**' # Trigger only if changes are made to files under /cli directory
+      - 'client/**' # Trigger only if changes are made to files under /cli directory
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'cli/**' # Trigger only if changes are made to files under /cli directory
+      - 'client/**' # Trigger only if changes are made to files under /cli directory
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./cli
+        working-directory: ./client
     steps:
     - uses: actions/checkout@v3
     - name: Build
