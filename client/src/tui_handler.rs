@@ -1,3 +1,6 @@
+use std::io;
+
+use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     text::{Line, Span},
@@ -5,7 +8,12 @@ use ratatui::{
     Frame,
 };
 
-use crate::{translations_handler::load_translation, AppContext};
+use crate::{
+    log_handler::{self, LOG},
+    rabbit_service,
+    translations_handler::{self, load_translation, Translations},
+    AppContext,
+};
 
 pub fn ui(frame: &mut Frame, app_context: &AppContext) {
     let layout = Layout::default()
@@ -15,7 +23,7 @@ pub fn ui(frame: &mut Frame, app_context: &AppContext) {
 
     let ui_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
         .split(layout[0]);
 
     let display_layout = Layout::default()
@@ -104,4 +112,52 @@ fn create_logs_widget<'a>(logs: &'a Vec<Span>, content_height: u16, title: &str)
             .title(title.to_owned())
             .borders(Borders::ALL),
     )
+}
+
+pub async fn handle_events<'a>(app: &mut AppContext<'a>) -> io::Result<bool> {
+    if event::poll(std::time::Duration::from_millis(50)).unwrap() {
+        if let Event::Key(key) = event::read().unwrap() {
+            if key.kind == event::KeyEventKind::Press {
+                match key.code {
+                    KeyCode::Char('q') => {
+                        return Ok(true);
+                    }
+
+                    KeyCode::Char('1') => {
+                        log_handler::log(
+                            LOG::LogSent(format!(
+                                "Publish task id: {} to 'task-dispatcher' queue\n",
+                                app.queued_messages
+                            )),
+                            app,
+                        );
+                        app.queued_messages += 1;
+
+                        rabbit_service::publish("task-dispatcher", "Hello world!").await;
+                    }
+
+                    KeyCode::Char('2') => {
+                        for _ in 0..250 {
+                            app.queued_messages += 1;
+                            rabbit_service::publish("task-dispatcher", "Hello world!").await;
+                        }
+                    }
+                    KeyCode::Char('3') => match app.current_translation {
+                        Translations::English => {
+                            app.translations =
+                                translations_handler::get_translations(Translations::Polish);
+                            app.current_translation = Translations::Polish;
+                        }
+                        _ => {
+                            app.translations =
+                                translations_handler::get_translations(Translations::English);
+                            app.current_translation = Translations::English;
+                        }
+                    },
+                    _ => {}
+                }
+            }
+        }
+    }
+    Ok(false)
 }
