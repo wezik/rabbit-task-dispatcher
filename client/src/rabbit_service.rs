@@ -1,51 +1,67 @@
-use crate::utils;
-use lapin::{options::*, types::FieldTable, BasicProperties, Connection, ConnectionProperties};
-use log::info;
+use core::time;
 
-pub async fn publish(queue_name: &str, message: &str) {
-    info!("Publishing '{}' to '{}' queue", message, queue_name);
+use amqprs::{
+    callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
+    channel::{self, Channel, QueueDeclareArguments},
+    connection::{Connection, OpenConnectionArguments},
+};
 
-    let connection = establish_rabbitmq_connection().await;
-    let channel = connection
-        .create_channel()
-        .await
-        .expect("Failed to create channel");
-
-    channel
-        .queue_declare(
-            &queue_name,
-            QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await
-        .expect("Failed to declare queue");
-
-    channel
-        .basic_publish(
-            "",
-            &queue_name,
-            BasicPublishOptions::default(),
-            message.as_bytes(),
-            BasicProperties::default(),
-        )
-        .await
-        .expect("Failed to publish");
+pub struct RabbitConnect {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+    pub vhost: String,
 }
 
-async fn establish_rabbitmq_connection() -> Connection {
-    let host = utils::get_env_var("RABBITMQ_HOST", "localhost", true);
-    let port = utils::get_env_var("RABBITMQ_PORT", "5672", true);
-    let username = utils::get_env_var("RABBITMQ_USERNAME", "guest", true);
-    let password = utils::get_env_var("RABBITMQ_PASSWORD", "guest", true);
-    let vhost = utils::get_env_var("RABBITMQ_VHOST", "test", true);
+pub async fn establish_connection(connection_details: &RabbitConnect) -> Connection {
+    let mut res = Connection::open(
+        &OpenConnectionArguments::new(
+            &connection_details.host,
+            connection_details.port,
+            &connection_details.username,
+            &connection_details.password,
+        )
+        .virtual_host(&connection_details.vhost)
+        .connection_name("rust-client"),
+    )
+    .await;
 
-    let addr = format!(
-        "amqp://{}:{}@{}:{}/{}",
-        username, password, host, port, vhost
-    );
-    let conn = Connection::connect(&addr, ConnectionProperties::default())
+    while res.is_err() {
+        std::thread::sleep(time::Duration::from_millis(2000));
+        res = Connection::open(
+            &OpenConnectionArguments::new(
+                &connection_details.host,
+                connection_details.port,
+                &connection_details.username,
+                &connection_details.password,
+            )
+            .virtual_host(&connection_details.vhost)
+            .connection_name("rust-client"),
+        )
+        .await;
+    }
+
+    let connection = res.unwrap();
+    connection
+        .register_callback(DefaultConnectionCallback)
         .await
-        .expect("Failed to connect to RabbitMQ");
+        .unwrap();
 
-    conn
+    connection
+}
+
+pub async fn establish_channel(connection: &Connection) -> Channel {
+    let channel = connection.open_channel(None).await.unwrap();
+    channel
+        .register_callback(DefaultChannelCallback)
+        .await
+        .unwrap();
+    channel
+}
+
+pub async fn declare_queue(channel: &Channel, queue_name: &str) {
+    let mut args = QueueDeclareArguments::new(queue_name);
+    args.durable(true); //golang amq lib sets it by default
+    channel.queue_declare(args).await.unwrap().unwrap();
 }

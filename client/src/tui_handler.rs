@@ -114,7 +114,7 @@ fn create_logs_widget<'a>(logs: &'a Vec<Span>, content_height: u16, title: &str)
     )
 }
 
-pub async fn handle_events<'a>(app: &mut AppContext<'a>) -> io::Result<bool> {
+pub async fn handle_events(app: &mut AppContext<'static>) -> io::Result<bool> {
     if event::poll(std::time::Duration::from_millis(50)).unwrap() {
         if let Event::Key(key) = event::read().unwrap() {
             if key.kind == event::KeyEventKind::Press {

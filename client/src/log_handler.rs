@@ -21,6 +21,7 @@ pub fn log(log: LOG, app_context: &mut AppContext) {
             send_log(destination, val);
         }
         LOG::LogReceived(val) => {
+            send_log(&mut app_context.sent_logs, "test".to_string());
             let destination = &mut app_context.received_logs;
             send_log(destination, val);
         }
