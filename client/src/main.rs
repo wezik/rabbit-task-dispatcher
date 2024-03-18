@@ -6,17 +6,20 @@ use amqprs::{
     channel::{BasicConsumeArguments, Channel, QueueDeclareArguments},
     connection::{self, Connection, OpenConnectionArguments},
 };
+use dotenv::dotenv;
 // use crossterm::{
 //     terminal::{enable_raw_mode, EnterAlternateScreen},
 //     ExecutableCommand,
 // };
 // use dotenv::dotenv;
 use rabbit_service::{declare_queue, establish_channel, establish_connection, RabbitConnect};
+use utils::read_env;
 // use ratatui::{backend::CrosstermBackend, text::Span, Terminal};
 // use translations_handler::Translations;
 
 // mod log_handler;
 mod rabbit_service;
+mod utils;
 // mod translations_handler;
 // mod tui_handler;
 // mod utils;
@@ -45,12 +48,16 @@ mod rabbit_service;
 
 #[tokio::main]
 async fn main() {
+
+    dotenv().ok();
     let connection_details = RabbitConnect {
-        host: "localhost".to_string(),
-        port: 5672,
-        username: "guest".to_string(),
-        password: "guest".to_string(),
-        vhost: "test".to_string(),
+        host: read_env("RABBITMQ_HOST", "localhost", true),
+        port: read_env("RABBITMQ_PORT", "5672", true)
+            .parse()
+            .expect("RABBITMQ_PORT is not a number"),
+        username: read_env("RABBITMQ_USERNAME", "guest", true),
+        password: read_env("RABBITMQ_PASSWORD", "guest", true),
+        vhost: read_env("RABBITMQ_VHOST", "/", true),
     };
 
     loop {

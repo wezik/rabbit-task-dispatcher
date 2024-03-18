@@ -62,6 +62,5 @@ pub async fn establish_channel(connection: &Connection) -> Channel {
 
 pub async fn declare_queue(channel: &Channel, queue_name: &str) {
     let mut args = QueueDeclareArguments::new(queue_name);
-    args.durable(true); //golang amq lib sets it by default
     channel.queue_declare(args).await.unwrap().unwrap();
 }
