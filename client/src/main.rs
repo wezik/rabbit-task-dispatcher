@@ -1,55 +1,32 @@
-use core::time;
-use std::{collections::HashMap, io::stdout};
-
-use amqprs::{
-    callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
-    channel::{BasicConsumeArguments, Channel, QueueDeclareArguments},
-    connection::{self, Connection, OpenConnectionArguments},
-};
 use dotenv::dotenv;
-// use crossterm::{
-//     terminal::{enable_raw_mode, EnterAlternateScreen},
-//     ExecutableCommand,
-// };
-// use dotenv::dotenv;
 use rabbit_service::{declare_queue, establish_channel, establish_connection, RabbitConnect};
 use utils::read_env;
-// use ratatui::{backend::CrosstermBackend, text::Span, Terminal};
-// use translations_handler::Translations;
 
-// mod log_handler;
+mod context_handler;
+mod log_handler;
 mod rabbit_service;
 mod utils;
-// mod translations_handler;
-// mod tui_handler;
-// mod utils;
-//
-// struct AppContext<'a> {
-//     sent_logs: Vec<Span<'a>>,
-//     received_logs: Vec<Span<'a>>,
-//     workers_online: usize,
-//     queued_messages: usize,
-//     translations: HashMap<String, String>,
-//     current_translation: Translations,
-// }
-//
-// impl<'a> AppContext<'a> {
-//     pub fn new() -> Self {
-//         AppContext {
-//             sent_logs: vec![],
-//             received_logs: vec![],
-//             workers_online: 0,
-//             queued_messages: 0,
-//             translations: translations_handler::get_translations(Translations::English),
-//             current_translation: Translations::English,
-//         }
-//     }
-// }
+
+struct AppContext {
+    logs: Vec<String>,
+    tasks_sent: Vec<String>,
+    tasks_received: Vec<String>,
+    workers_connected: usize,
+    total_tasks: usize,
+}
 
 #[tokio::main]
 async fn main() {
-
     dotenv().ok();
+
+    let context = AppContext {
+        logs: vec![],
+        tasks_sent: vec![],
+        tasks_received: vec![],
+        workers_connected: 0,
+        total_tasks: 0,
+    };
+
     let connection_details = RabbitConnect {
         host: read_env("RABBITMQ_HOST", "localhost", true),
         port: read_env("RABBITMQ_PORT", "5672", true)
@@ -58,55 +35,28 @@ async fn main() {
         username: read_env("RABBITMQ_USERNAME", "guest", true),
         password: read_env("RABBITMQ_PASSWORD", "guest", true),
         vhost: read_env("RABBITMQ_VHOST", "/", true),
+        connection_name: read_env("RABBITMQ_CONNECTION_NAME", "rust-client", true),
     };
 
-    loop {
-        let mut connection = establish_connection(&connection_details).await;
-        println!("Started connection:{}", connection);
-        let mut channel = establish_channel(&connection).await;
-        println!("Started channel:{}", channel);
-        declare_queue(&channel, "task-response").await;
-        let mut args = BasicConsumeArguments::new("task-response", "");
-        args.no_ack = true;
-        let (_, mut messages_rx) = channel.basic_consume_rx(args.clone()).await.unwrap();
-        println!("Launch succesfull, listening for messages!");
-        while let Some(msg) = messages_rx.recv().await {
-            let a = msg.content.unwrap();
-            let s = String::from_utf8_lossy(&a);
+    let pub_queue = read_env("RABBITMQ_PUBLISH_QUEUE", "task-dispatcher", true);
+    let cons_queue = read_env("RABBITMQ_CONSUMER_QUEUE", "task-response", true);
+    let connection = establish_connection(&connection_details).await;
+    let pub_channel = establish_channel(&connection).await;
+    let cons_channel = establish_channel(&connection).await;
+    declare_queue(&pub_channel, &pub_queue).await;
+    declare_queue(&cons_channel, &cons_queue).await;
 
-            println!("received message: {}", s);
-        }
+    let (tx, pub_handle) =
+        rabbit_service::create_publisher(pub_channel, &pub_queue).await;
+    let cons_handle =
+        rabbit_service::create_consumer(&cons_channel, &cons_queue).await;
+
+    for i in 0..25 {
+        let message = format!("Task id '{}'", i);
+        let _ = tx.send(message).await;
     }
-    // init();
-    // let mut should_quit = false;
-    //
-    // let mut app_context = AppContext::new();
-    // let mut terminal = Terminal::new(CrosstermBackend::new(stdout())).unwrap();
-    //
-    // while !should_quit {
-    //     let _ = terminal.draw(|frame| tui_handler::ui(frame, &app_context));
-    //     should_quit = tui_handler::handle_events(&mut app_context).await.unwrap();
-    //
-    //     let mut connection = get_connection().await;
-    //     let channel = connection.open_channel(None).await.unwrap();
-    //     channel.register_callback(DefaultChannelCallback).await.unwrap();
-    //     let qparams = QueueDeclareArguments::default()
-    //         .queue("task-respones".to_string())
-    //         .auto_delete(true)
-    //         .durable(false)
-    //         .arguments(Default::default())
-    //         .finish();
-    //     channel.queue_declare(qparams).await.unwrap().unwrap();
-    //
-    //     let args = BasicConsumeArguments::new("task-response", "task-response");
-    //     let (ctag, mut messages_rx) = channel.basic_consume_rx(args.clone()).await.unwrap();
-    //
-    //     while let Some(msg) = messages_rx.recv().await {
-    //         let a = msg.content.unwrap();
-    //         let body = String::from_utf8_lossy(&a).to_string();
-    //         app_context.received_logs.push(Span::from(body));
-    //     }
-    // }
+
+    let _ = tokio::join!(pub_handle, cons_handle);
 }
 
 // fn init() {
