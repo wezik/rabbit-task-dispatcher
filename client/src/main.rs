@@ -1,60 +1,69 @@
-use std::{
-    collections::HashMap,
-    io::stdout,
-};
-
-use crossterm::{
-    terminal::{enable_raw_mode, EnterAlternateScreen},
-    ExecutableCommand,
-};
 use dotenv::dotenv;
-use ratatui::{backend::CrosstermBackend, text::Span, Terminal};
-use translations_handler::Translations;
+use log_handler::Log;
+use rabbit_service::{declare_queue, establish_channel, establish_connection, RabbitConnect};
+use utils::read_env;
 
+mod context_handler;
 mod log_handler;
 mod rabbit_service;
-mod translations_handler;
-mod tui_handler;
 mod utils;
 
-struct AppContext<'a> {
-    sent_logs: Vec<Span<'a>>,
-    received_logs: Vec<Span<'a>>,
-    workers_online: usize,
-    queued_messages: usize,
-    translations: HashMap<String, String>,
-    current_translation: Translations,
-}
-
-impl<'a> AppContext<'a> {
-    pub fn new() -> Self {
-        AppContext {
-            sent_logs: vec![],
-            received_logs: vec![],
-            workers_online: 0,
-            queued_messages: 0,
-            translations: translations_handler::get_translations(Translations::English),
-            current_translation: Translations::English,
-        }
-    }
+struct AppContext {
+    logs: Vec<String>,
+    tasks_sent: Vec<String>,
+    tasks_received: Vec<String>,
+    workers_connected: usize,
+    total_tasks: usize,
 }
 
 #[tokio::main]
 async fn main() {
-    init();
-    let mut should_quit = false;
-
-    let mut app_context = AppContext::new();
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout())).unwrap();
-
-    while !should_quit {
-        let _ = terminal.draw(|frame| tui_handler::ui(frame, &app_context));
-        should_quit = tui_handler::handle_events(&mut app_context).await.unwrap();
-    }
-}
-
-fn init() {
     dotenv().ok();
-    let _ = enable_raw_mode();
-    stdout().execute(EnterAlternateScreen).unwrap();
+
+    let context = AppContext {
+        logs: vec![],
+        tasks_sent: vec![],
+        tasks_received: vec![],
+        workers_connected: 0,
+        total_tasks: 0,
+    };
+
+    let connection_details = RabbitConnect {
+        host: read_env("RABBITMQ_HOST", "localhost", true),
+        port: read_env("RABBITMQ_PORT", "5672", true)
+            .parse()
+            .expect("RABBITMQ_PORT is not a number"),
+        username: read_env("RABBITMQ_USERNAME", "guest", true),
+        password: read_env("RABBITMQ_PASSWORD", "guest", true),
+        vhost: read_env("RABBITMQ_VHOST", "/", true),
+        connection_name: read_env("RABBITMQ_CONNECTION_NAME", "rust-client", true),
+    };
+
+    let pub_queue = read_env("RABBITMQ_PUBLISH_QUEUE", "task-dispatcher", true);
+    let cons_queue = read_env("RABBITMQ_CONSUMER_QUEUE", "task-response", true);
+    let connection = establish_connection(&connection_details).await;
+    let pub_channel = establish_channel(&connection).await;
+    let cons_channel = establish_channel(&connection).await;
+    declare_queue(&pub_channel, &pub_queue).await;
+    declare_queue(&cons_channel, &cons_queue).await;
+
+    let _ = log_handler::get_logger_tx()
+        .send(Log::Info("Starting application".to_string()))
+        .await;
+
+    let (tx, pub_handle) = rabbit_service::create_publisher(pub_channel, &pub_queue).await;
+    let cons_handle = rabbit_service::create_consumer(&cons_channel, &cons_queue).await;
+
+    for i in 0..25 {
+        let message = format!("Task id '{}'", i);
+        let _ = tx.send(message).await;
+    }
+
+    let _ = tokio::join!(pub_handle, cons_handle);
 }
+
+// fn init() {
+//     dotenv().ok();
+//     let _ = enable_raw_mode();
+//     stdout().execute(EnterAlternateScreen).unwrap();
+// }

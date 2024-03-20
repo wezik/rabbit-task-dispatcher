@@ -1,28 +1,52 @@
-use chrono::Local;
-use ratatui::text::Span;
+use tokio::sync::mpsc;
 
-use crate::AppContext;
-
-pub enum LOG {
-    LogSent(String),
-    LogReceived(String),
+pub enum Log {
+    Info(String),
+    Debug(String),
+    Error(String),
+    SentTask(String),
+    ReceivedTask(String),
 }
 
-pub fn log(log: LOG, app_context: &mut AppContext) {
-    fn send_log(destination: &mut Vec<Span>, value: String) {
-        let date = Local::now();
-        let timestamp = date.format("[%Y-%m-%d][%H:%M:%S]");
-        destination.push(Span::from(format!("{} - {}", timestamp, value)));
-    }
+static mut LOGGER_TX: Option<mpsc::Sender<Log>> = None;
 
-    match log {
-        LOG::LogSent(val) => {
-            let destination = &mut app_context.sent_logs;
-            send_log(destination, val);
+pub fn get_logger_tx<'a>() -> mpsc::Sender<Log> {
+    unsafe {
+        if LOGGER_TX.is_none() {
+            let (tx, mut rx) = mpsc::channel(100);
+            tokio::spawn(async move {
+                while let Some(log) = rx.recv().await {
+                    match log {
+                        Log::Info(log) => handle_info_log(log),
+                        Log::Debug(log) => handle_debug_log(log),
+                        Log::Error(log) => handle_error_log(log),
+                        Log::SentTask(log) => handle_sent_task(log),
+                        Log::ReceivedTask(log) => handle_received_task(log),
+                    }
+                }
+            });
+            LOGGER_TX = Some(tx);
         }
-        LOG::LogReceived(val) => {
-            let destination = &mut app_context.received_logs;
-            send_log(destination, val);
-        }
+        LOGGER_TX.clone().unwrap()
     }
+}
+
+fn handle_info_log(msg: String) {
+    println!("Log: {}", msg);
+}
+
+fn handle_debug_log(msg: String) {
+    println!("Debug: {}", msg);
+}
+
+fn handle_error_log(msg: String) {
+    println!("Error: {}", msg);
+}
+
+fn handle_sent_task(msg: String) {
+    println!("Sent task: {}", msg);
+}
+
+fn handle_received_task(msg: String) {
+    println!("Received task: {}", msg);
 }
