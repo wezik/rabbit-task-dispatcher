@@ -1,4 +1,5 @@
 use dotenv::dotenv;
+use log_handler::Log;
 use rabbit_service::{declare_queue, establish_channel, establish_connection, RabbitConnect};
 use utils::read_env;
 
@@ -46,10 +47,12 @@ async fn main() {
     declare_queue(&pub_channel, &pub_queue).await;
     declare_queue(&cons_channel, &cons_queue).await;
 
-    let (tx, pub_handle) =
-        rabbit_service::create_publisher(pub_channel, &pub_queue).await;
-    let cons_handle =
-        rabbit_service::create_consumer(&cons_channel, &cons_queue).await;
+    let _ = log_handler::get_logger_tx()
+        .send(Log::Info("Starting application".to_string()))
+        .await;
+
+    let (tx, pub_handle) = rabbit_service::create_publisher(pub_channel, &pub_queue).await;
+    let cons_handle = rabbit_service::create_consumer(&cons_channel, &cons_queue).await;
 
     for i in 0..25 {
         let message = format!("Task id '{}'", i);

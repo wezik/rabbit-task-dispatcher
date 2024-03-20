@@ -9,14 +9,11 @@ use amqprs::{
 };
 use core::time;
 use tokio::{
-    sync::mpsc::{self, Sender},
+    sync::mpsc::{self},
     task::JoinHandle,
 };
 
-use crate::{
-    context_handler::ContextOP,
-    log_handler::{self, LOG},
-};
+use crate::log_handler::{self, Log};
 
 pub struct RabbitConnect {
     pub host: String,
@@ -90,8 +87,9 @@ pub async fn create_publisher(
         let args = BasicPublishArguments::default()
             .routing_key(queue_name)
             .finish();
+        let logger = log_handler::get_logger_tx();
         while let Some(msg) = rx.recv().await {
-            log_handler::log(LOG::LogSentTask(msg.clone()));
+            let _ = logger.send(Log::SentTask(msg.clone())).await;
             channel
                 .basic_publish(
                     BasicProperties::default(),
@@ -104,25 +102,17 @@ pub async fn create_publisher(
     }
 
     let (tx, rx) = mpsc::channel::<String>(100);
-    let handle = tokio::spawn(publish_messages(
-        rx,
-        channel,
-        queue_name.to_string(),
-    ));
+    let handle = tokio::spawn(publish_messages(rx, channel, queue_name.to_string()));
     (tx, handle)
 }
 
-pub async fn create_consumer(
-    channel: &Channel,
-    queue_name: &str,
-) -> JoinHandle<()> {
-    async fn receive_messages(
-        mut rx: mpsc::UnboundedReceiver<ConsumerMessage>,
-    ) {
+pub async fn create_consumer(channel: &Channel, queue_name: &str) -> JoinHandle<()> {
+    async fn receive_messages(mut rx: mpsc::UnboundedReceiver<ConsumerMessage>) {
+        let logger = log_handler::get_logger_tx();
         while let Some(msg) = rx.recv().await {
             let a = msg.content.unwrap();
             let s = String::from_utf8_lossy(&a);
-            log_handler::log(LOG::LogReceivedTask(s.to_string()));
+            let _ = logger.send(Log::ReceivedTask(s.to_string())).await;
         }
     }
 
